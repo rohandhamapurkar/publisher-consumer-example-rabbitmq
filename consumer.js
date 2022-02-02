@@ -1,19 +1,28 @@
-var q = "tasks"
+var queueName = "tasks"
+var amqp = require("amqplib")
 
-var open = require("amqplib").connect("amqp://user:password@localhost")
 // Consumer
-open
-	.then(function (conn) {
-		return conn.createChannel()
+async function main() {
+	let conn = await amqp.connect("amqp://user:password@localhost")
+	// create a channel
+	let channel = await conn.createChannel()
+	// will send and wait for ack only 1 message at a time
+	channel.prefetch(1)
+
+	// consume messages
+	channel.consume(queueName, function (msg) {
+		if (msg !== null) {
+			console.log(msg.content.toString())
+			// simulated delay
+			setTimeout(() => {
+				channel.ack(msg)
+			}, 500)
+		}
 	})
-	.then(function (ch) {
-		return ch.assertQueue(q).then(function (ok) {
-			return ch.consume(q, function (msg) {
-				if (msg !== null) {
-					console.log(msg.content.toString())
-					ch.ack(msg)
-				}
-			})
-		})
+}
+
+main()
+	.then(() => {
+		console.log("initialized consumer")
 	})
-	.catch(console.warn)
+	.catch(console.error)
